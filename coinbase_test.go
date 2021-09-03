@@ -12,7 +12,7 @@ import (
 
 func TestCoinbaseApi_ExchangeRates(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		assert.True(t, strings.HasSuffix(req.URL.String(), "exchange-rates?currency=USD"))
+		assert.True(t, strings.HasSuffix(req.URL.String(), "/exchange-rates?currency=USD"))
 		response := `{
 			"data": {
 				"currency": "USD",

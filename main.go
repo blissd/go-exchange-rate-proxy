@@ -26,10 +26,19 @@ func main() {
 	var currency Currency = "USD"
 	rates, err := coinbase.ExchangeRates(currency)
 	if err != nil {
-		logger.Log("msg", err)
-		panic(-1)
+		logger.Log("error", err)
+		os.Exit(1)
 	}
 
-	logger.Log("msg", "exchange rates", "currency", currency, "rate", rates["BCH"])
+	logger.Log("msg", "exchange rates", "currency", currency, "rate", rates["GBP"])
+
+	proxy := NewProxyApi(coinbase, logger)
+	convertedAmount, err := proxy.Convert(1.0, "GBP", "BCH")
+	if err != nil {
+		logger.Log("msg", "failed conversion", "error", err)
+		os.Exit(1)
+	}
+
+	logger.Log("msg", "converted", "amount", convertedAmount)
 
 }

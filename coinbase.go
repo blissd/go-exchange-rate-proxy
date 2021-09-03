@@ -31,7 +31,7 @@ func NewCoinbaseApi(logger log.Logger) *CoinbaseApi {
 	}
 }
 
-func (api CoinbaseApi) ExchangeRates(currency Currency) (Rates, error) {
+func (api *CoinbaseApi) ExchangeRates(currency Currency) (Rates, error) {
 	type Response struct {
 		Data struct {
 			Currency string
@@ -40,7 +40,6 @@ func (api CoinbaseApi) ExchangeRates(currency Currency) (Rates, error) {
 	}
 
 	url := fmt.Sprintf("%v/exchange-rates?currency=%v", api.url, currency)
-	api.logger.Log("url", url)
 	httpResponse, err := api.client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("coinbase api: %w", err)
@@ -52,8 +51,6 @@ func (api CoinbaseApi) ExchangeRates(currency Currency) (Rates, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading json: %w", err)
 	}
-
-	api.logger.Log("json", string(bytes))
 
 	err = json.Unmarshal(bytes, &response)
 	if err != nil {
