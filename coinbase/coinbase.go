@@ -13,15 +13,19 @@ import (
 
 const ApiUrlBase = "https://api.coinbase.com/v2"
 
+// Api coinbase API
 type Api struct {
 	// url base API url
 	url string
 
+	// logger for... logging
 	logger log.Logger
 
+	// client for HTTP requests
 	client http.Client
 }
 
+// New constructs a valid coinbase Api.
 func New(logger log.Logger) *Api {
 	return &Api{
 		url:    ApiUrlBase,
@@ -32,6 +36,8 @@ func New(logger log.Logger) *Api {
 	}
 }
 
+// ExchangeRates loads the current exchanges for a given currency.
+// Exchange rates change every minute.
 func (api *Api) ExchangeRates(currency domain.Currency) (domain.Rates, error) {
 	type Response struct {
 		Data struct {

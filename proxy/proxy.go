@@ -8,6 +8,7 @@ import (
 	"sync"
 )
 
+// Api proxy service API
 type Api struct {
 	// coinbase API to interact with Coinbase REST endpoints
 	coinbase *coinbase.Api
@@ -22,6 +23,7 @@ type Api struct {
 	logger log.Logger
 }
 
+// New constructs a valid Api
 func New(cb *coinbase.Api, logger log.Logger) *Api {
 	return &Api{
 		coinbase: cb,
@@ -30,6 +32,8 @@ func New(cb *coinbase.Api, logger log.Logger) *Api {
 	}
 }
 
+// Convert computes a conversion from one currency to another with the current exchange rate.
+// As a side-effect the cache of exchange rates might be updated.
 func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Currency) (*domain.Exchanged, error) {
 	api.lock.RLock()
 	rates, ok := api.rates[from]

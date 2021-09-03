@@ -11,6 +11,7 @@ import (
 	"os"
 )
 
+// server dependencies for HTTP server functions
 type server struct {
 	proxyApi *proxy.Api
 	logger   log.Logger
@@ -33,18 +34,21 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
+// ConvertRequest for unmarshalling JSON requests posted by clients
 type ConvertRequest struct {
 	FromCurrency domain.Currency
 	ToCurrency   domain.Currency
 	Amount       domain.Amount
 }
 
+// ConvertResponse for marshalling JSON responses to return to clients
 type ConvertResponse struct {
 	Exchange domain.Rate   `json:"exchange"`
 	Amount   domain.Amount `json:"amount"`
 	Original domain.Amount `json:"original"`
 }
 
+// convert produces HTTP handler for currency conversions
 func (s *server) convert() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
