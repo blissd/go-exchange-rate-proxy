@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 const CoinbaseApiUrlBase = "https://api.coinbase.com/v2"
@@ -16,9 +17,21 @@ type CoinbaseApi struct {
 	url string
 
 	logger log.Logger
+
+	client http.Client
 }
 
-func (api CoinbaseApi) ExchangeRates(currency Currency) (ExchangeRates, error) {
+func NewCoinbaseApi(logger log.Logger) *CoinbaseApi {
+	return &CoinbaseApi{
+		url:    CoinbaseApiUrlBase,
+		logger: logger,
+		client: http.Client{
+			Timeout: 5 * time.Second,
+		},
+	}
+}
+
+func (api CoinbaseApi) ExchangeRates(currency Currency) (Rates, error) {
 	type Response struct {
 		Data struct {
 			Currency string
@@ -28,7 +41,7 @@ func (api CoinbaseApi) ExchangeRates(currency Currency) (ExchangeRates, error) {
 
 	url := fmt.Sprintf("%v/exchange-rates?currency=%v", api.url, currency)
 	api.logger.Log("url", url)
-	httpResponse, err := http.Get(url)
+	httpResponse, err := api.client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("coinbase api: %w", err)
 	}
@@ -47,7 +60,7 @@ func (api CoinbaseApi) ExchangeRates(currency Currency) (ExchangeRates, error) {
 		return nil, fmt.Errorf("decoding json: %w", err)
 	}
 
-	rates := ExchangeRates{}
+	rates := Rates{}
 	for k, v := range response.Data.Rates {
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {

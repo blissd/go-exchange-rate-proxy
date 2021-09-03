@@ -14,17 +14,14 @@ type Amount float64
 // Rate an exchange rate
 type Rate float64
 
-type ExchangeRates map[Currency]Rate
+type Rates map[Currency]Rate
 
 func main() {
 
 	w := log.NewSyncWriter(os.Stderr)
 	logger := log.NewLogfmtLogger(w)
 
-	coinbase := CoinbaseApi{
-		url: CoinbaseApiUrlBase,
-		logger: logger,
-	}
+	coinbase := NewCoinbaseApi(logger)
 
 	var currency Currency = "USD"
 	rates, err := coinbase.ExchangeRates(currency)
