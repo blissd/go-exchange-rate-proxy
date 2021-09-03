@@ -19,6 +19,7 @@ type server struct {
 func main() {
 	w := log.NewSyncWriter(os.Stderr)
 	logger := log.NewLogfmtLogger(w)
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 
 	cb := coinbase.New(log.With(logger, "component", "coinbase api"))
 	p := proxy.New(cb, log.With(logger, "component", "proxy api"))
