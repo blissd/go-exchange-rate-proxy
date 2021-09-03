@@ -30,7 +30,7 @@ func New(cb *coinbase.Api, logger log.Logger) *Api {
 	}
 }
 
-func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Currency) (domain.Amount, error) {
+func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Currency) (*domain.Exchanged, error) {
 	api.lock.RLock()
 	rates, ok := api.rates[from]
 	api.lock.RUnlock()
@@ -40,7 +40,7 @@ func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Cu
 		// will result in multiple updates for the same currency.
 		err := api.refresh(from)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 	}
 	api.lock.RLock()
@@ -50,9 +50,14 @@ func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Cu
 	rate, ok := rates[to]
 	if !ok {
 		fmt.Println(rate)
-		return 0, fmt.Errorf("unknown 'to' currency: %v", to)
+		return nil, fmt.Errorf("unknown 'to' currency: %v", to)
 	}
-	return domain.Amount(float64(rate) * float64(amount)), nil
+
+	result := domain.Exchanged{
+		Rate:   rate,
+		Amount: domain.Amount(float64(rate) * float64(amount)),
+	}
+	return &result, nil
 }
 
 func (api *Api) refresh(currency domain.Currency) error {
