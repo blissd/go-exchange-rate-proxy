@@ -1,8 +1,9 @@
-package main
+package coinbase
 
 import (
 	"github.com/go-kit/log"
 	"github.com/stretchr/testify/assert"
+	"go-exchange-rate-proxy/domain"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,11 +23,11 @@ func TestCoinbaseApi_ExchangeRates(t *testing.T) {
 				}
 			}
 		}`
-		rw.Write([]byte(response))
+		_, _ = rw.Write([]byte(response))
 	}))
 	defer server.Close()
 
-	api := CoinbaseApi{
+	api := Api{
 		url:    server.URL,
 		logger: log.NewNopLogger(),
 	}
@@ -34,18 +35,18 @@ func TestCoinbaseApi_ExchangeRates(t *testing.T) {
 	rates, err := api.ExchangeRates("USD")
 
 	assert.Nil(t, err)
-	assert.Equal(t, Rate(1000.0), rates["BCH"])
-	assert.Equal(t, Rate(1.2), rates["GBP"])
+	assert.Equal(t, domain.Rate(1000.0), rates["BCH"])
+	assert.Equal(t, domain.Rate(1.2), rates["GBP"])
 }
 
 func TestCoinbaseApi_ExchangeRatesTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		time.Sleep(10 * time.Millisecond)
-		rw.Write([]byte("{}"))
+		_, _ = rw.Write([]byte("{}"))
 	}))
 	defer server.Close()
 
-	api := CoinbaseApi{
+	api := Api{
 		url:    server.URL,
 		logger: log.NewNopLogger(),
 	}

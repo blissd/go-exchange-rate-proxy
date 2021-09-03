@@ -1,18 +1,19 @@
-package main
+package coinbase
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-kit/log"
+	"go-exchange-rate-proxy/domain"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-const CoinbaseApiUrlBase = "https://api.coinbase.com/v2"
+const ApiUrlBase = "https://api.coinbase.com/v2"
 
-type CoinbaseApi struct {
+type Api struct {
 	// url base API url
 	url string
 
@@ -21,9 +22,9 @@ type CoinbaseApi struct {
 	client http.Client
 }
 
-func NewCoinbaseApi(logger log.Logger) *CoinbaseApi {
-	return &CoinbaseApi{
-		url:    CoinbaseApiUrlBase,
+func New(logger log.Logger) *Api {
+	return &Api{
+		url:    ApiUrlBase,
 		logger: logger,
 		client: http.Client{
 			Timeout: 5 * time.Second,
@@ -31,7 +32,7 @@ func NewCoinbaseApi(logger log.Logger) *CoinbaseApi {
 	}
 }
 
-func (api *CoinbaseApi) ExchangeRates(currency Currency) (Rates, error) {
+func (api *Api) ExchangeRates(currency domain.Currency) (domain.Rates, error) {
 	type Response struct {
 		Data struct {
 			Currency string
@@ -57,13 +58,13 @@ func (api *CoinbaseApi) ExchangeRates(currency Currency) (Rates, error) {
 		return nil, fmt.Errorf("decoding json: %w", err)
 	}
 
-	rates := Rates{}
+	rates := domain.Rates{}
 	for k, v := range response.Data.Rates {
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {
 			return nil, fmt.Errorf("bad rate value: %w", err)
 		}
-		rates[Currency(k)] = Rate(f)
+		rates[domain.Currency(k)] = domain.Rate(f)
 	}
 
 	return rates, nil
