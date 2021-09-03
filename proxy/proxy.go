@@ -36,16 +36,16 @@ func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Cu
 	api.lock.RUnlock()
 
 	if !ok {
-		// note... slight race condition in that multiple request for the same yet-unused currency
-		// will result in multiple updates for the same currency.
-		err := api.refresh(from)
+		// note... slight race condition in that multiple requests for the same yet-unused currency
+		// will result in multiple updates for the same currency, which is probably harmless.
+		// We could avoid this with more locking, but I don't want to hold a lock for the duration of a HTTP
+		// request to the coinbase API.
+		var err error
+		rates, err = api.refresh(from)
 		if err != nil {
 			return nil, err
 		}
 	}
-	api.lock.RLock()
-	defer api.lock.RUnlock()
-	rates = api.rates[from] // no need to check ok because we know that refresh, if called, succeeded.
 
 	rate, ok := rates[to]
 	if !ok {
@@ -60,13 +60,15 @@ func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Cu
 	return &result, nil
 }
 
-func (api *Api) refresh(currency domain.Currency) error {
+// refresh exchange rates for a currency and return.
+func (api *Api) refresh(currency domain.Currency) (domain.Rates, error) {
+	api.logger.Log("msg", "refreshing", "currency", currency)
 	rates, err := api.coinbase.ExchangeRates(currency)
 	if err != nil {
-		return fmt.Errorf("refresh now [%v]: %w", currency, err)
+		return nil, fmt.Errorf("refresh now [%v]: %w", currency, err)
 	}
 	api.lock.Lock()
 	defer api.lock.Unlock()
 	api.rates[currency] = rates
-	return nil
+	return rates, nil
 }
