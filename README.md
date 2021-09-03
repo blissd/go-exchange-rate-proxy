@@ -29,15 +29,18 @@ The return should be an object with the exchange rate between the "fromCurrency"
 
 The exchange rates should be loaded from https://developers.coinbase.com/api/v2?shell#exchange-rates rates change every 1 minute.
 
-## Implementation Notes
+## How to Run
 
+First run the server process.
+```shell
+go run server/main.go
+```
 
-POST http://localhost:8080/api/convert
-Body:
-```json
-{
-"fromCurrency": "GBP",
-"toCurrency" : "EUR",
-"amount" : 102.6
-}
+The POST a JSON message with `curl`
+
+```shell
+curl -X POST -H "Content-Type: application/json" \
+  -d'{"fromCurrency":"GBP", "toCurrency":"EUR", "amount":2.0}' \
+  http://localhost:8080/api/convert
+
 ```

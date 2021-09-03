@@ -40,9 +40,9 @@ type ConvertRequest struct {
 }
 
 type ConvertResponse struct {
-	Exchange domain.Rate
-	Amount   domain.Amount
-	Original domain.Amount
+	Exchange domain.Rate   `json:"exchange"`
+	Amount   domain.Amount `json:"amount"`
+	Original domain.Amount `json:"original"`
 }
 
 func (s *server) convert() http.HandlerFunc {
