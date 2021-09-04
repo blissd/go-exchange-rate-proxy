@@ -73,15 +73,17 @@ func LookupWithCache(lookup LookupFunc, updateFrequency time.Duration, logger lo
 	lock := sync.RWMutex{}
 
 	// refresh get rates from wrapped lookup and update cache
-	refreshNow := func(currency domain.Currency) (domain.Rates, error) {
+	// bool return is true if this is the first time the currency has been seen
+	refreshNow := func(currency domain.Currency) (domain.Rates, bool, error) {
 		rates, err := lookup(currency)
 		if err != nil {
-			return nil, fmt.Errorf("refresh [%v]: %w", currency, err)
+			return nil, false, fmt.Errorf("refresh [%v]: %w", currency, err)
 		}
 		lock.Lock()
 		defer lock.Unlock()
+		_, ok := cache[currency]
 		cache[currency] = rates
-		return rates, nil
+		return rates, !ok, nil
 	}
 
 	// refreshPeriodically refreshes rate for one currency every updateFrequency.
@@ -91,7 +93,7 @@ func LookupWithCache(lookup LookupFunc, updateFrequency time.Duration, logger lo
 			select {
 			case <-time.After(updateFrequency):
 				logger.Log("msg", "periodic refresh", "currency", currency)
-				_, err := refreshNow(currency)
+				_, _, err := refreshNow(currency)
 				if err != nil {
 					// Don't return, just log and hope this is a transient error
 					logger.Log("msg", "periodic refresh failed", "currency", currency, "error", err)
@@ -109,11 +111,22 @@ func LookupWithCache(lookup LookupFunc, updateFrequency time.Duration, logger lo
 		if !ok {
 			logger.Log("msg", "seeding cache", "currency", currency)
 			var err error // separate var err, so it is very clear that rates is being re-assigned below
-			rates, err = refreshNow(currency)
+			var firstTime bool
+
+			// Note there is a race condition here in that multiple requests for a currency that isn't yet cached
+			// will result in multiple concurrent attempts to refresh. This should be harmless, unless the underlying
+			// coinbase API throttles the requests. We could avoid this by holding a lock while calling the
+			// calling and waiting on the underlying coinbase API, but that is a blocking operation so I'd rather not.
+			// To avoid running multiple go routines to periodically refresh the same currency, the refreshNow
+			// function will inform of the first time the currency is cached.
+			rates, firstTime, err = refreshNow(currency)
 			if err != nil {
 				return nil, fmt.Errorf("refreshing cache [%v]: %w", currency, err)
 			}
-			go refreshPeriodically(currency)
+			if firstTime {
+				logger.Log("msg", "scheduling periodic refresh", "currency", currency)
+				go refreshPeriodically(currency)
+			}
 		}
 
 		return rates, nil
