@@ -38,11 +38,15 @@ func TestLookupWithCache_PeriodicRefresh(t *testing.T) {
 
 	cachedLookup := LookupWithCache(underlyingLookup, 1*time.Millisecond, log.NewNopLogger())
 
-	_, _ = cachedLookup(context.Background(), "ABC")
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx) // must cancel to stop go-routine started by this test
+	defer cancel()
+
+	_, _ = cachedLookup(ctx, "ABC")
 	assert.GreaterOrEqual(t, invocationCount, int32(1))
 
 	last := invocationCount
 	time.Sleep(1 * time.Millisecond)
-	_, _ = cachedLookup(context.Background(), "ABC")
+	_, _ = cachedLookup(ctx, "ABC")
 	assert.GreaterOrEqual(t, invocationCount, last)
 }
