@@ -18,12 +18,16 @@ func TestLookupWithCache(t *testing.T) {
 		return domain.Rates{}, nil
 	}
 
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx) // must cancel to stop go-routine started by this test
+	defer cancel()
+
 	cachedLookup := LookupWithCache(underlyingLookup, 1*time.Minute, log.NewNopLogger())
 
-	_, _ = cachedLookup(context.Background(), "ABC")
+	_, _ = cachedLookup(ctx, "ABC")
 	assert.Equal(t, invocationCount, 1)
 
-	_, _ = cachedLookup(context.Background(), "ABC")
+	_, _ = cachedLookup(ctx, "ABC")
 	assert.Equal(t, invocationCount, 1)
 }
 
