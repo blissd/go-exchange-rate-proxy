@@ -10,45 +10,33 @@ import (
 
 // Api proxy service API
 type Api struct {
-	// coinbase API to interact with Coinbase REST endpoints
-	coinbase *coinbase.Api
-
-	// rates maps a currency code to a map of currencies to rates
-	rates map[domain.Currency]domain.Rates
-
-	// lock synchronizes access to rates map
-	lock sync.RWMutex
+	// lookup to lookup exchange rates. lookup must be concurrency-safe
+	lookup LookupFunc
 
 	// logger for logging
 	logger log.Logger
 }
 
+// LookupFunc for looking up exchange rates for a currency.
+// Implementations must be concurrency-safe when invoked.
+// Returned rates must be safe for concurrent reads.
+type LookupFunc func(currency domain.Currency) (domain.Rates, error)
+
 // New constructs a valid Api
-func New(cb *coinbase.Api, logger log.Logger) *Api {
+func New(lookup LookupFunc, logger log.Logger) *Api {
 	return &Api{
-		coinbase: cb,
-		logger:   logger,
-		rates:    map[domain.Currency]domain.Rates{},
+		lookup: lookup,
+		logger: logger,
 	}
 }
 
 // Convert computes a conversion from one currency to another with the current exchange rate.
 // As a side-effect the cache of exchange rates might be updated.
 func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Currency) (*domain.Exchanged, error) {
-	api.lock.RLock()
-	rates, ok := api.rates[from]
-	api.lock.RUnlock()
-
-	if !ok {
-		// note... slight race condition in that multiple requests for the same yet-unused currency
-		// will result in multiple updates for the same currency, which is probably harmless.
-		// We could avoid this with more locking, but I don't want to hold a lock for the duration of a HTTP
-		// request to the coinbase API.
-		var err error
-		rates, err = api.refresh(from)
-		if err != nil {
-			return nil, err
-		}
+	api.logger.Log("msg", "converting currency", "from", from, "to", to, "amount", amount)
+	rates, err := api.lookup(from)
+	if err != nil {
+		return nil, fmt.Errorf("convert from [%v]: %w", from, err)
 	}
 
 	rate, ok := rates[to]
@@ -61,18 +49,55 @@ func (api *Api) Convert(amount domain.Amount, from domain.Currency, to domain.Cu
 		Rate:   rate,
 		Amount: domain.Amount(float64(rate) * float64(amount)),
 	}
+
+	api.logger.Log("msg", "converted currency",
+		"from", from,
+		"to", to,
+		"amount", amount,
+		"rate", rate,
+		"converted_amount", result.Amount,
+	)
+
 	return &result, nil
 }
 
-// refresh exchange rates for a currency and return.
-func (api *Api) refresh(currency domain.Currency) (domain.Rates, error) {
-	api.logger.Log("msg", "refreshing", "currency", currency)
-	rates, err := api.coinbase.ExchangeRates(currency)
-	if err != nil {
-		return nil, fmt.Errorf("refresh now [%v]: %w", currency, err)
+// LookupWithApi look up exchange rates directly by coinbase.Api
+func LookupWithApi(api *coinbase.Api) LookupFunc {
+	return api.ExchangeRates
+}
+
+// LookupWithCache decorates another lookup to add caching and refreshing
+func LookupWithCache(lookup LookupFunc, logger log.Logger) LookupFunc {
+	cache := map[domain.Currency]domain.Rates{}
+	lock := sync.RWMutex{}
+
+	// refresh get rates from wrapped lookup and update cache
+	refresh := func(currency domain.Currency) (domain.Rates, error) {
+		rates, err := lookup(currency)
+		if err != nil {
+			return nil, fmt.Errorf("refresh now [%v]: %w", currency, err)
+		}
+		lock.Lock()
+		defer lock.Unlock()
+		cache[currency] = rates
+		return rates, nil
 	}
-	api.lock.Lock()
-	defer api.lock.Unlock()
-	api.rates[currency] = rates
-	return rates, nil
+
+	return func(currency domain.Currency) (domain.Rates, error) {
+		logger.Log("msg", "checking cache", "currency", currency)
+		lock.RLock()
+		rates, ok := cache[currency]
+		lock.RUnlock()
+
+		if !ok {
+			logger.Log("msg", "seeding cache", "currency", currency)
+			var err error // separate var err, so it is very clear that rates is being re-assigned below
+			rates, err = refresh(currency)
+			if err != nil {
+				return nil, fmt.Errorf("refreshing cache [%v]: %w", currency, err)
+			}
+		}
+
+		return rates, nil
+	}
 }

@@ -47,6 +47,9 @@ func (api *Api) ExchangeRates(currency domain.Currency) (domain.Rates, error) {
 	}
 
 	url := fmt.Sprintf("%v/exchange-rates?currency=%v", api.url, currency)
+
+	api.logger.Log("msg", "loading exchange rates", "currency", currency, "url", url)
+
 	httpResponse, err := api.client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("coinbase api: %w", err)

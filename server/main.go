@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"go-exchange-rate-proxy/coinbase"
 	"go-exchange-rate-proxy/domain"
 	"go-exchange-rate-proxy/proxy"
@@ -21,9 +22,13 @@ func main() {
 	w := log.NewSyncWriter(os.Stderr)
 	logger := log.NewLogfmtLogger(w)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	logger = level.NewFilter(logger, level.AllowAll())
+	logger = level.Debug(logger)
 
 	cb := coinbase.New(log.With(logger, "component", "coinbase api"))
-	p := proxy.New(cb, log.With(logger, "component", "proxy api"))
+	lookup := proxy.LookupWithApi(cb)
+	lookup = proxy.LookupWithCache(lookup, logger)
+	p := proxy.New(lookup, log.With(logger, "component", "proxy api"))
 
 	server := &server{
 		proxyApi: p,
