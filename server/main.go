@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 )
 
 // server dependencies for HTTP server functions
@@ -27,7 +28,7 @@ func main() {
 
 	cb := coinbase.New(log.With(logger, "component", "coinbase api"))
 	lookup := proxy.LookupWithApi(cb)
-	lookup = proxy.LookupWithCache(lookup, logger)
+	lookup = proxy.LookupWithCache(lookup, 1*time.Minute, logger)
 	p := proxy.New(lookup, log.With(logger, "component", "proxy api"))
 
 	server := &server{
