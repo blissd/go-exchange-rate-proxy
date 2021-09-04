@@ -33,7 +33,7 @@ func TestCoinbaseApi_ExchangeRates(t *testing.T) {
 		logger: log.NewNopLogger(),
 	}
 
-	rates, err := api.ExchangeRates(context.TODO(), "USD")
+	rates, err := api.ExchangeRates(context.Background(), "USD")
 
 	assert.Nil(t, err)
 	assert.Equal(t, domain.Rate(1000.0), rates["BCH"])
@@ -53,7 +53,7 @@ func TestCoinbaseApi_ExchangeRatesTimeout(t *testing.T) {
 	}
 	api.client.Timeout = 1 * time.Millisecond
 
-	_, err := api.ExchangeRates(context.TODO(), "USD")
+	_, err := api.ExchangeRates(context.Background(), "USD")
 
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "Client.Timeout")) // fragile :-(
