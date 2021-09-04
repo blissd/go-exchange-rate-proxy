@@ -1,6 +1,7 @@
 package coinbase
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-kit/log"
@@ -38,7 +39,7 @@ func New(logger log.Logger) *Api {
 
 // ExchangeRates loads the current exchanges for a given currency.
 // Exchange rates change every minute.
-func (api *Api) ExchangeRates(currency domain.Currency) (domain.Rates, error) {
+func (api *Api) ExchangeRates(ctx context.Context, currency domain.Currency) (domain.Rates, error) {
 	type Response struct {
 		Data struct {
 			Currency string
@@ -50,9 +51,13 @@ func (api *Api) ExchangeRates(currency domain.Currency) (domain.Rates, error) {
 
 	api.logger.Log("msg", "loading exchange rates", "currency", currency, "url", url)
 
-	httpResponse, err := api.client.Get(url)
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("coinbase api: %w", err)
+		return nil, fmt.Errorf("building http request: %w", err)
+	}
+	httpResponse, err := api.client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("http get: %w", err)
 	}
 	defer httpResponse.Body.Close()
 

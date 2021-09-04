@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -20,6 +21,7 @@ type server struct {
 }
 
 func main() {
+
 	w := log.NewSyncWriter(os.Stderr)
 	logger := log.NewLogfmtLogger(w)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
@@ -36,7 +38,9 @@ func main() {
 		logger:   log.With(logger, "component", "http server"),
 	}
 
-	http.Handle("/api/convert", http.Handler(server.convert()))
+	ctx := context.Background()
+
+	http.Handle("/api/convert", http.Handler(server.convert(ctx)))
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -55,7 +59,7 @@ type ConvertResponse struct {
 }
 
 // convert produces HTTP handler for currency conversions
-func (s *server) convert() http.HandlerFunc {
+func (s *server) convert(ctx context.Context) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
@@ -78,7 +82,7 @@ func (s *server) convert() http.HandlerFunc {
 
 		s.logger.Log("msg", "converting", "from", request.FromCurrency, "to", request.ToCurrency, "amount", request.Amount)
 
-		result, err := s.proxyApi.Convert(request.Amount, request.FromCurrency, request.ToCurrency)
+		result, err := s.proxyApi.Convert(ctx, request.Amount, request.FromCurrency, request.ToCurrency)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			rw.Write([]byte(`{"error": "failed conversion"}`))

@@ -1,6 +1,7 @@
 package coinbase
 
 import (
+	"context"
 	"github.com/go-kit/log"
 	"github.com/stretchr/testify/assert"
 	"go-exchange-rate-proxy/domain"
@@ -32,7 +33,7 @@ func TestCoinbaseApi_ExchangeRates(t *testing.T) {
 		logger: log.NewNopLogger(),
 	}
 
-	rates, err := api.ExchangeRates("USD")
+	rates, err := api.ExchangeRates(context.TODO(), "USD")
 
 	assert.Nil(t, err)
 	assert.Equal(t, domain.Rate(1000.0), rates["BCH"])
@@ -52,7 +53,7 @@ func TestCoinbaseApi_ExchangeRatesTimeout(t *testing.T) {
 	}
 	api.client.Timeout = 1 * time.Millisecond
 
-	_, err := api.ExchangeRates("USD")
+	_, err := api.ExchangeRates(context.TODO(), "USD")
 
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "Client.Timeout")) // fragile :-(
