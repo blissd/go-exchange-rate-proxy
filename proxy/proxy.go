@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-kit/log"
 	"go-exchange-rate-proxy/coinbase"
@@ -67,68 +68,82 @@ func LookupWithApi(api *coinbase.Api) LookupFunc {
 	return api.ExchangeRates
 }
 
-// LookupWithCache decorates another lookup to add caching and refreshing
-func LookupWithCache(lookup LookupFunc, updateFrequency time.Duration, logger log.Logger) LookupFunc {
-	cache := map[domain.Currency]domain.Rates{}
-	lock := sync.RWMutex{}
+// LookupWithCache decorates another next to add caching and refreshing
+func LookupWithCache(next LookupFunc, updateFrequency time.Duration, logger log.Logger) LookupFunc {
 
-	// refresh get rates from wrapped lookup and update cache
-	// bool return is true if this is the first time the currency has been seen
-	refreshNow := func(currency domain.Currency) (domain.Rates, bool, error) {
-		rates, err := lookup(currency)
-		if err != nil {
-			return nil, false, fmt.Errorf("refresh [%v]: %w", currency, err)
-		}
-		lock.Lock()
-		defer lock.Unlock()
-		_, ok := cache[currency]
-		cache[currency] = rates
-		return rates, !ok, nil
+	cached := &cache{
+		cache:           map[domain.Currency]domain.Rates{},
+		updateFrequency: updateFrequency,
+		lock:            sync.RWMutex{},
+		next:            next,
+		logger:          logger,
 	}
 
-	// refreshPeriodically refreshes rate for one currency every updateFrequency.
-	// Must be invoked from a go routine.
-	refreshPeriodically := func(currency domain.Currency) {
-		for {
-			select {
-			case <-time.After(updateFrequency):
-				logger.Log("msg", "periodic refresh", "currency", currency)
-				_, _, err := refreshNow(currency)
-				if err != nil {
-					// Don't return, just log and hope this is a transient error
-					logger.Log("msg", "periodic refresh failed", "currency", currency, "error", err)
-				}
-			}
-		}
+	return cached.lookup
+}
+
+type cache struct {
+	cache           map[domain.Currency]domain.Rates
+	updateFrequency time.Duration
+	lock            sync.RWMutex
+	next            LookupFunc
+	logger          log.Logger
+}
+
+func (c *cache) refreshNow(currency domain.Currency) (domain.Rates, bool, error) {
+	rates, err := c.next(currency)
+	if err != nil {
+		return nil, false, fmt.Errorf("refresh [%v]: %w", currency, err)
 	}
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	_, ok := c.cache[currency]
+	c.cache[currency] = rates
+	return rates, !ok, nil
+}
 
-	return func(currency domain.Currency) (domain.Rates, error) {
-		logger.Log("msg", "checking cache", "currency", currency)
-		lock.RLock()
-		rates, ok := cache[currency]
-		lock.RUnlock()
-
-		if !ok {
-			logger.Log("msg", "seeding cache", "currency", currency)
-			var err error // separate var err, so it is very clear that rates is being re-assigned below
-			var firstTime bool
-
-			// Note there is a race condition here in that multiple requests for a currency that isn't yet cached
-			// will result in multiple concurrent attempts to refresh. This should be harmless, unless the underlying
-			// coinbase API throttles the requests. We could avoid this by holding a lock while calling the
-			// calling and waiting on the underlying coinbase API, but that is a blocking operation so I'd rather not.
-			// To avoid running multiple go routines to periodically refresh the same currency, the refreshNow
-			// function will inform of the first time the currency is cached.
-			rates, firstTime, err = refreshNow(currency)
+func (c *cache) refreshPeriodically(ctx context.Context, currency domain.Currency) {
+	for {
+		select {
+		case <-time.After(c.updateFrequency):
+			c.logger.Log("msg", "periodic refresh", "currency", currency)
+			_, _, err := c.refreshNow(currency)
 			if err != nil {
-				return nil, fmt.Errorf("refreshing cache [%v]: %w", currency, err)
+				// Don't return, just log and hope this is a transient error
+				c.logger.Log("msg", "periodic refresh failed", "currency", currency, "error", err)
 			}
-			if firstTime {
-				logger.Log("msg", "scheduling periodic refresh", "currency", currency)
-				go refreshPeriodically(currency)
-			}
+		case <-ctx.Done():
+			c.logger.Log("msg", "shutting down period refresh", "currency", currency)
+			return
 		}
+	}
+}
 
+func (c *cache) lookup(currency domain.Currency) (domain.Rates, error) {
+	c.logger.Log("msg", "checking cache", "currency", currency)
+	c.lock.RLock()
+	rates, ok := c.cache[currency]
+	c.lock.RUnlock()
+
+	if !ok {
+		c.logger.Log("msg", "seeding cache", "currency", currency)
+
+		// Note there is a race condition here in that multiple requests for a currency that isn't yet cached
+		// will result in multiple concurrent attempts to refresh. This should be harmless, unless the underlying
+		// coinbase API throttles the requests. We could avoid this by holding a lock while calling the
+		// calling and waiting on the underlying coinbase API, but that is a blocking operation so I'd rather not.
+		// To avoid running multiple go routines to periodically refresh the same currency, the refreshNow
+		// function will inform of the first time the currency is cached.
+		rates, firstTime, err := c.refreshNow(currency)
+		if err != nil {
+			return nil, fmt.Errorf("refreshing cache [%v]: %w", currency, err)
+		}
+		if firstTime {
+			c.logger.Log("msg", "scheduling periodic refresh", "currency", currency)
+			go c.refreshPeriodically(context.TODO(), currency)
+		}
 		return rates, nil
 	}
+
+	return rates, nil
 }
