@@ -18,6 +18,15 @@ import (
 type server struct {
 	proxyApi *proxy.Api
 	logger   log.Logger
+	router   http.ServeMux
+}
+
+func (s *server) routes() {
+	s.router.Handle("/api/convert", s.convert())
+}
+
+func (s *server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(rw, r)
 }
 
 func main() {
@@ -37,15 +46,13 @@ func main() {
 		proxyApi: p,
 		logger:   log.With(logger, "component", "http server"),
 	}
+	server.routes()
 
-	ctx := context.Background()
-
-	http.Handle("/api/convert", http.Handler(server.convert(ctx)))
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8080", server)
 }
 
 // convert produces HTTP handler for currency conversions
-func (s *server) convert(ctx context.Context) http.HandlerFunc {
+func (s *server) convert() http.HandlerFunc {
 
 	// request for unmarshalling JSON requests posted by clients
 	type request struct {
@@ -83,7 +90,7 @@ func (s *server) convert(ctx context.Context) http.HandlerFunc {
 
 		s.logger.Log("msg", "converting", "from", request.FromCurrency, "to", request.ToCurrency, "amount", request.Amount)
 
-		result, err := s.proxyApi.Convert(ctx, request.Amount, request.FromCurrency, request.ToCurrency)
+		result, err := s.proxyApi.Convert(context.Background(), request.Amount, request.FromCurrency, request.ToCurrency)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			rw.Write([]byte(`{"error": "failed conversion"}`))
