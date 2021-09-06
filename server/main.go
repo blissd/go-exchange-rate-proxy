@@ -44,22 +44,23 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
-// ConvertRequest for unmarshalling JSON requests posted by clients
-type ConvertRequest struct {
-	FromCurrency domain.Currency
-	ToCurrency   domain.Currency
-	Amount       domain.Amount
-}
-
-// ConvertResponse for marshalling JSON responses to return to clients
-type ConvertResponse struct {
-	Exchange domain.Rate   `json:"exchange"`
-	Amount   domain.Amount `json:"amount"`
-	Original domain.Amount `json:"original"`
-}
-
 // convert produces HTTP handler for currency conversions
 func (s *server) convert(ctx context.Context) http.HandlerFunc {
+
+	// request for unmarshalling JSON requests posted by clients
+	type request struct {
+		FromCurrency domain.Currency
+		ToCurrency   domain.Currency
+		Amount       domain.Amount
+	}
+
+	// response for marshalling JSON responses to return to clients
+	type response struct {
+		Exchange domain.Rate   `json:"exchange"`
+		Amount   domain.Amount `json:"amount"`
+		Original domain.Amount `json:"original"`
+	}
+
 	return func(rw http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
@@ -72,7 +73,7 @@ func (s *server) convert(ctx context.Context) http.HandlerFunc {
 			return
 		}
 
-		var request ConvertRequest
+		var request request
 		err = json.Unmarshal(bytes, &request)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
@@ -89,7 +90,7 @@ func (s *server) convert(ctx context.Context) http.HandlerFunc {
 			return
 		}
 
-		response := ConvertResponse{
+		response := response{
 			Exchange: result.Rate,
 			Amount:   result.Amount,
 			Original: request.Amount,
