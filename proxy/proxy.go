@@ -68,7 +68,7 @@ func LookupWithApi(api *coinbase.Api) LookupFunc {
 	return api.ExchangeRates
 }
 
-// LookupWithCache decorates another next to add caching and refreshing
+// LookupWithCache decorates another lookup function to add caching and refreshing
 func LookupWithCache(next LookupFunc, updateFrequency time.Duration, logger log.Logger) LookupFunc {
 	cache := &cache{
 		cache:           map[domain.Currency]domain.Rates{},
@@ -81,14 +81,25 @@ func LookupWithCache(next LookupFunc, updateFrequency time.Duration, logger log.
 	return cache.lookup
 }
 
+// cache of exchange rates. The cache is concurrency safe and will periodically refresh cached values.
 type cache struct {
-	cache           map[domain.Currency]domain.Rates
+	// cache the cache of rates
+	cache map[domain.Currency]domain.Rates
+
+	// updateFrequency how often to refresh cached values
 	updateFrequency time.Duration
-	lock            sync.RWMutex
-	next            LookupFunc
-	logger          log.Logger
+
+	// lock synchronizes access to cache to make it concurrency safe
+	lock sync.RWMutex
+
+	// next the LookupFunc being decorated with a cache
+	next LookupFunc
+
+	// logger to log
+	logger log.Logger
 }
 
+// refreshNow refreshes a cached entry immediately
 func (c *cache) refreshNow(ctx context.Context, currency domain.Currency) (domain.Rates, bool, error) {
 	rates, err := c.next(ctx, currency)
 	if err != nil {
@@ -101,6 +112,8 @@ func (c *cache) refreshNow(ctx context.Context, currency domain.Currency) (domai
 	return rates, !ok, nil
 }
 
+// refreshPeriodically refreshes a cached entry on a given schedule.
+// This is expected to be called from a go-routine for each currency.
 func (c *cache) refreshPeriodically(ctx context.Context, currency domain.Currency) {
 	for {
 		select {
