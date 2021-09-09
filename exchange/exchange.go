@@ -1,16 +1,16 @@
-package proxy
+package exchange
 
 import (
 	"context"
 	"fmt"
 	"github.com/go-kit/log"
+	"go-exchange-rate-proxy"
 	"go-exchange-rate-proxy/coinbase"
-	"go-exchange-rate-proxy/domain"
 	"sync"
 	"time"
 )
 
-// Api proxy service API
+// Api proxy exchange API
 type Api struct {
 	// lookup to lookup exchange rates. lookup must be concurrency-safe
 	lookup LookupFunc
@@ -22,7 +22,7 @@ type Api struct {
 // LookupFunc for looking up exchange rates for a currency.
 // Implementations must be concurrency-safe when invoked.
 // Returned rates must be safe for concurrent reads.
-type LookupFunc func(ctx context.Context, currency domain.Currency) (domain.Rates, error)
+type LookupFunc func(ctx context.Context, currency proxy.Currency) (proxy.Rates, error)
 
 // New constructs a valid Api
 func New(lookup LookupFunc, logger log.Logger) *Api {
@@ -34,7 +34,7 @@ func New(lookup LookupFunc, logger log.Logger) *Api {
 
 // Convert computes a conversion from one currency to another with the current exchange rate.
 // As a side-effect the cache of exchange rates might be updated.
-func (api *Api) Convert(ctx context.Context, amount domain.Amount, from domain.Currency, to domain.Currency) (*domain.Exchanged, error) {
+func (api *Api) Convert(ctx context.Context, amount proxy.Amount, from proxy.Currency, to proxy.Currency) (*proxy.Exchanged, error) {
 	api.logger.Log("msg", "converting currency", "from", from, "to", to, "amount", amount)
 	rates, err := api.lookup(ctx, from)
 	if err != nil {
@@ -47,9 +47,9 @@ func (api *Api) Convert(ctx context.Context, amount domain.Amount, from domain.C
 		return nil, fmt.Errorf("unknown 'to' currency: %v", to)
 	}
 
-	result := domain.Exchanged{
+	result := proxy.Exchanged{
 		Rate:   rate,
-		Amount: domain.Amount(float64(rate) * float64(amount)),
+		Amount: proxy.Amount(float64(rate) * float64(amount)),
 	}
 
 	api.logger.Log("msg", "converted currency",
@@ -71,7 +71,7 @@ func LookupWithApi(api *coinbase.Api) LookupFunc {
 // LookupWithCache decorates another lookup function to add caching and refreshing
 func LookupWithCache(next LookupFunc, updateFrequency time.Duration, logger log.Logger) LookupFunc {
 	cache := &cache{
-		cache:           map[domain.Currency]domain.Rates{},
+		cache:           map[proxy.Currency]proxy.Rates{},
 		updateFrequency: updateFrequency,
 		lock:            sync.RWMutex{},
 		next:            next,
@@ -84,7 +84,7 @@ func LookupWithCache(next LookupFunc, updateFrequency time.Duration, logger log.
 // cache of exchange rates. The cache is concurrency safe and will periodically refresh cached values.
 type cache struct {
 	// cache the cache of rates
-	cache map[domain.Currency]domain.Rates
+	cache map[proxy.Currency]proxy.Rates
 
 	// updateFrequency how often to refresh cached values
 	updateFrequency time.Duration
@@ -100,7 +100,7 @@ type cache struct {
 }
 
 // refreshNow refreshes a cached entry immediately
-func (c *cache) refreshNow(ctx context.Context, currency domain.Currency) (domain.Rates, bool, error) {
+func (c *cache) refreshNow(ctx context.Context, currency proxy.Currency) (proxy.Rates, bool, error) {
 	rates, err := c.next(ctx, currency)
 	if err != nil {
 		return nil, false, fmt.Errorf("refresh [%v]: %w", currency, err)
@@ -114,7 +114,7 @@ func (c *cache) refreshNow(ctx context.Context, currency domain.Currency) (domai
 
 // refreshPeriodically refreshes a cached entry on a given schedule.
 // This is expected to be called from a go-routine for each currency.
-func (c *cache) refreshPeriodically(ctx context.Context, currency domain.Currency) {
+func (c *cache) refreshPeriodically(ctx context.Context, currency proxy.Currency) {
 	for {
 		select {
 		case <-time.After(c.updateFrequency):
@@ -133,14 +133,14 @@ func (c *cache) refreshPeriodically(ctx context.Context, currency domain.Currenc
 }
 
 // uncache safely removes currency from cache
-func (c *cache) uncache(currency domain.Currency) {
+func (c *cache) uncache(currency proxy.Currency) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	delete(c.cache, currency)
 }
 
 // lookup exchange rates and cache results
-func (c *cache) lookup(ctx context.Context, currency domain.Currency) (domain.Rates, error) {
+func (c *cache) lookup(ctx context.Context, currency proxy.Currency) (proxy.Rates, error) {
 	c.logger.Log("msg", "checking cache", "currency", currency)
 	c.lock.RLock()
 	rates, ok := c.cache[currency]

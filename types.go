@@ -1,4 +1,4 @@
-package domain
+package proxy
 
 // Currency a currency code
 type Currency string

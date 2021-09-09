@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-kit/log"
-	"go-exchange-rate-proxy/domain"
+	"go-exchange-rate-proxy"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -39,7 +39,7 @@ func New(logger log.Logger) *Api {
 
 // ExchangeRates loads the current exchanges for a given currency.
 // Exchange rates change every minute.
-func (api *Api) ExchangeRates(ctx context.Context, currency domain.Currency) (domain.Rates, error) {
+func (api *Api) ExchangeRates(ctx context.Context, currency proxy.Currency) (proxy.Rates, error) {
 	type Response struct {
 		Data struct {
 			Currency string
@@ -72,13 +72,13 @@ func (api *Api) ExchangeRates(ctx context.Context, currency domain.Currency) (do
 		return nil, fmt.Errorf("decoding json: %w", err)
 	}
 
-	rates := domain.Rates{}
+	rates := proxy.Rates{}
 	for k, v := range response.Data.Rates {
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {
 			return nil, fmt.Errorf("bad rate value: %w", err)
 		}
-		rates[domain.Currency(k)] = domain.Rate(f)
+		rates[proxy.Currency(k)] = proxy.Rate(f)
 	}
 
 	return rates, nil

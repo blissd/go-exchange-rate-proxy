@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/go-kit/log"
 	"github.com/stretchr/testify/assert"
-	"go-exchange-rate-proxy/domain"
+	"go-exchange-rate-proxy"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -36,8 +36,8 @@ func TestCoinbaseApi_ExchangeRates(t *testing.T) {
 	rates, err := api.ExchangeRates(context.Background(), "USD")
 
 	assert.Nil(t, err)
-	assert.Equal(t, domain.Rate(1000.0), rates["BCH"])
-	assert.Equal(t, domain.Rate(1.2), rates["GBP"])
+	assert.Equal(t, proxy.Rate(1000.0), rates["BCH"])
+	assert.Equal(t, proxy.Rate(1.2), rates["GBP"])
 }
 
 func TestCoinbaseApi_ExchangeRatesTimeout(t *testing.T) {
