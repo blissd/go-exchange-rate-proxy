@@ -38,7 +38,7 @@ func New(logger log.Logger) *Api {
 }
 
 // ExchangeRates loads the current exchanges for a given currency.
-// Exchange rates change every minute.
+// Api rates change every minute.
 func (api *Api) ExchangeRates(ctx context.Context, currency proxy.Currency) (proxy.Rates, error) {
 	type Response struct {
 		Data struct {

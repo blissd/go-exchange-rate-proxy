@@ -12,7 +12,7 @@ import (
 
 // Server dependencies for HTTP Server functions
 type Server struct {
-	Proxy  *exchange.Api
+	Api    *exchange.Api
 	Logger log.Logger
 	router http.ServeMux
 }
@@ -64,7 +64,7 @@ func (s *Server) convert() http.HandlerFunc {
 
 		s.Logger.Log("msg", "converting", "from", request.FromCurrency, "to", request.ToCurrency, "amount", request.Amount)
 
-		result, err := s.Proxy.Convert(context.Background(), request.Amount, request.FromCurrency, request.ToCurrency)
+		result, err := s.Api.Convert(context.Background(), request.Amount, request.FromCurrency, request.ToCurrency)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			rw.Write([]byte(`{"error": "failed conversion"}`))

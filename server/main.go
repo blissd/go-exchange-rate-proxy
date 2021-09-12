@@ -25,7 +25,7 @@ func main() {
 	p := exchange.New(lookup, log.With(logger, "component", "proxy api"))
 
 	server := &http.Server{
-		Proxy:  p,
+		Api:    p,
 		Logger: log.With(logger, "component", "http server"),
 	}
 	server.Routes()
