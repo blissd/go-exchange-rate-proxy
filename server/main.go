@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/go-kit/log"
 	"go-exchange-rate-proxy/coinbase"
-	"go-exchange-rate-proxy/exchange"
+	"go-exchange-rate-proxy/convert"
 	"go-exchange-rate-proxy/http"
 	"os"
 	"time"
@@ -18,14 +18,14 @@ func main() {
 	//logger = level.NewFilter(logger, level.AllowAll())
 	//logger = level.Debug(logger)
 
-	cs := coinbase.NewService()
-	cs = coinbase.NewLoggingService(log.With(logger, "component", "coinbase_rest"), cs)
-	cs = coinbase.NewCachingService(1*time.Minute, cs)
-	cs = coinbase.NewLoggingService(log.With(logger, "component", "coinbase_cache"), cs)
+	coinbaseService := coinbase.NewService()
+	coinbaseService = coinbase.NewLoggingService(log.With(logger, "component", "coinbase_rest"), coinbaseService)
+	coinbaseService = coinbase.NewCachingService(1*time.Minute, log.With(logger, "component", "coinbase_cache"), coinbaseService)
+	coinbaseService = coinbase.NewLoggingService(log.With(logger, "component", "coinbase_cache"), coinbaseService)
 
-	es := exchange.NewService(cs)
-	es = exchange.NewLoggingService(log.With(logger, "component", "exchange"), es)
+	convertService := convert.NewService(coinbaseService)
+	convertService = convert.NewLoggingService(log.With(logger, "component", "convert"), convertService)
 
-	handler := http.NewHandler(es)
+	handler := http.NewHandler(convertService)
 	nhttp.ListenAndServe(":8080", handler)
 }

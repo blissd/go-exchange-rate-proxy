@@ -1,4 +1,4 @@
-package exchange
+package convert
 
 import (
 	"context"
@@ -12,9 +12,9 @@ type Service interface {
 	Convert(ctx context.Context, amount proxy.Amount, from proxy.Currency, to proxy.Currency) (proxy.Exchanged, error)
 }
 
-// Service proxy exchange API
+// Service proxy convert API
 type service struct {
-	// coinbase coinbaseService to lookup exchange exchangeRates.
+	// coinbase coinbaseService to lookup convert exchangeRates.
 	coinbaseService coinbase.Service
 }
 
@@ -25,8 +25,8 @@ func NewService(s coinbase.Service) Service {
 	}
 }
 
-// Convert computes a conversion from one currency to another with the current exchange rate.
-// As a side-effect the cache of exchange exchangeRates might be updated.
+// Convert computes a conversion from one currency to another with the current convert rate.
+// As a side-effect the cache of convert exchangeRates might be updated.
 func (s *service) Convert(ctx context.Context, amount proxy.Amount, from proxy.Currency, to proxy.Currency) (proxy.Exchanged, error) {
 	rates, err := s.coinbaseService.ExchangeRates(ctx, from)
 	if err != nil {

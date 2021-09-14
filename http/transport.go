@@ -4,18 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"go-exchange-rate-proxy"
-	"go-exchange-rate-proxy/exchange"
+	"go-exchange-rate-proxy/convert"
 	"io/ioutil"
 	"net/http"
 )
 
 // Server dependencies for HTTP Server functions
 type server struct {
-	service exchange.Service
+	service convert.Service
 	router  http.ServeMux
 }
 
-func NewHandler(s exchange.Service) http.Handler {
+func NewHandler(s convert.Service) http.Handler {
 	server := &server{
 		service: s,
 		router:  http.ServeMux{},

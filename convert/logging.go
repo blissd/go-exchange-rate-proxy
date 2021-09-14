@@ -1,4 +1,4 @@
-package exchange
+package convert
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// loggingService decorates an exchange.Service with logging
+// loggingService decorates a convert.Service with logging
 type loggingService struct {
 	logger log.Logger
 	next   Service

@@ -2,6 +2,7 @@ package coinbase
 
 import (
 	"context"
+	"github.com/go-kit/log"
 	"github.com/stretchr/testify/assert"
 	proxy "go-exchange-rate-proxy"
 	"sync/atomic"
@@ -24,7 +25,7 @@ func TestLookupWithCache(t *testing.T) {
 	defer cancel()
 
 	var underlyingService mock
-	s := NewCachingService(1*time.Minute, &underlyingService)
+	s := NewCachingService(1*time.Minute, log.NewNopLogger(), &underlyingService)
 
 	_, _ = s.ExchangeRates(ctx, "ABC")
 	assert.Equal(t, underlyingService.count, int32(1))
@@ -39,7 +40,7 @@ func TestLookupWithCache_PeriodicRefresh(t *testing.T) {
 	defer cancel()
 
 	var underlyingService mock
-	s := NewCachingService(1*time.Millisecond, &underlyingService)
+	s := NewCachingService(1*time.Millisecond, log.NewNopLogger(), &underlyingService)
 
 	_, _ = s.ExchangeRates(ctx, "ABC")
 	assert.GreaterOrEqual(t, underlyingService.count, int32(1))

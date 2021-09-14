@@ -27,13 +27,13 @@ type cachingService struct {
 }
 
 // NewCachingService returns a new caching Service
-func NewCachingService(updateFrequency time.Duration, s Service) Service {
+func NewCachingService(updateFrequency time.Duration, logger log.Logger, s Service) Service {
 	return &cachingService{
 		next:            s,
 		cache:           map[proxy.Currency]proxy.Rates{},
 		updateFrequency: updateFrequency,
 		lock:            sync.RWMutex{},
-		logger:          log.NewNopLogger(),
+		logger:          logger,
 	}
 }
 
