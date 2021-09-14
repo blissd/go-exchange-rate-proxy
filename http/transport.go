@@ -10,13 +10,13 @@ import (
 )
 
 // Server dependencies for HTTP Server functions
-type Server struct {
+type server struct {
 	service exchange.Service
 	router  http.ServeMux
 }
 
-func NewServer(s exchange.Service) *Server {
-	server := &Server{
+func NewHandler(s exchange.Service) http.Handler {
+	server := &server{
 		service: s,
 		router:  http.ServeMux{},
 	}
@@ -24,16 +24,18 @@ func NewServer(s exchange.Service) *Server {
 	return server
 }
 
-func (s *Server) routes() {
-	s.router.Handle("/api/convert", s.convert())
-}
-
-func (s *Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+// ServeHTTP implementing this method makes server a http.Handler
+func (s *server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(rw, r)
 }
 
+// routes configure HTTP routes
+func (s *server) routes() {
+	s.router.Handle("/api/convert", s.convert())
+}
+
 // convert produces HTTP handler for currency conversions
-func (s *Server) convert() http.HandlerFunc {
+func (s *server) convert() http.HandlerFunc {
 
 	// request for unmarshalling JSON requests posted by clients
 	type request struct {

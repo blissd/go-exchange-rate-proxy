@@ -31,7 +31,7 @@ func TestServer_ServeHTTP(t *testing.T) {
 		to:     "FOO",
 	}
 
-	server := NewServer(&es)
+	server := NewHandler(&es)
 
 	w := httptest.NewRecorder()
 	msg := `{"fromCurrency":"GBP", "toCurrency":"FOO","amount":3.0}`

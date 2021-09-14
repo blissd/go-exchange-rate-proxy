@@ -26,6 +26,6 @@ func main() {
 	es := exchange.NewService(cs)
 	es = exchange.NewLoggingService(log.With(logger, "component", "exchange"), es)
 
-	server := http.NewServer(es)
-	nhttp.ListenAndServe(":8080", server)
+	handler := http.NewHandler(es)
+	nhttp.ListenAndServe(":8080", handler)
 }
