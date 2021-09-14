@@ -11,13 +11,13 @@ import (
 
 // Server dependencies for HTTP Server functions
 type Server struct {
-	Service exchange.Service
+	service exchange.Service
 	router  http.ServeMux
 }
 
 func NewServer(s exchange.Service) *Server {
 	server := &Server{
-		Service: s,
+		service: s,
 		router:  http.ServeMux{},
 	}
 	server.routes()
@@ -69,7 +69,7 @@ func (s *Server) convert() http.HandlerFunc {
 			return
 		}
 
-		result, err := s.Service.Convert(context.Background(), request.Amount, request.FromCurrency, request.ToCurrency)
+		result, err := s.service.Convert(context.Background(), request.Amount, request.FromCurrency, request.ToCurrency)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			rw.Write([]byte(`{"error": "failed conversion"}`))
