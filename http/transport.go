@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"github.com/go-kit/log"
 	"go-exchange-rate-proxy"
 	"go-exchange-rate-proxy/exchange"
 	"io/ioutil"
@@ -12,12 +11,20 @@ import (
 
 // Server dependencies for HTTP Server functions
 type Server struct {
-	Api    *exchange.Api
-	Logger log.Logger
-	router http.ServeMux
+	Service exchange.Service
+	router  http.ServeMux
 }
 
-func (s *Server) Routes() {
+func NewServer(s exchange.Service) *Server {
+	server := &Server{
+		Service: s,
+		router:  http.ServeMux{},
+	}
+	server.routes()
+	return server
+}
+
+func (s *Server) routes() {
 	s.router.Handle("/api/convert", s.convert())
 }
 
@@ -62,9 +69,7 @@ func (s *Server) convert() http.HandlerFunc {
 			return
 		}
 
-		s.Logger.Log("msg", "converting", "from", request.FromCurrency, "to", request.ToCurrency, "amount", request.Amount)
-
-		result, err := s.Api.Convert(context.Background(), request.Amount, request.FromCurrency, request.ToCurrency)
+		result, err := s.Service.Convert(context.Background(), request.Amount, request.FromCurrency, request.ToCurrency)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			rw.Write([]byte(`{"error": "failed conversion"}`))

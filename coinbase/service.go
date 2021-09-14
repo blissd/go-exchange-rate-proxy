@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-kit/log"
 	"go-exchange-rate-proxy"
 	"io/ioutil"
 	"net/http"
@@ -14,23 +13,24 @@ import (
 
 const ApiUrlBase = "https://api.coinbase.com/v2"
 
-// Api coinbase API
-type Api struct {
+// Service wraps the coinbase REST API
+type Service interface {
+	ExchangeRates(ctx context.Context, currency proxy.Currency) (proxy.Rates, error)
+}
+
+// service coinbase API
+type service struct {
 	// url base API url
 	url string
-
-	// logger for... logging
-	logger log.Logger
 
 	// client for HTTP requests
 	client http.Client
 }
 
-// New constructs a valid coinbase Api.
-func New(logger log.Logger) *Api {
-	return &Api{
-		url:    ApiUrlBase,
-		logger: logger,
+// NewService constructs a valid coinbase Service.
+func NewService() Service {
+	return &service{
+		url: ApiUrlBase,
 		client: http.Client{
 			Timeout: 5 * time.Second,
 		},
@@ -38,8 +38,8 @@ func New(logger log.Logger) *Api {
 }
 
 // ExchangeRates loads the current exchanges for a given currency.
-// Api rates change every minute.
-func (api *Api) ExchangeRates(ctx context.Context, currency proxy.Currency) (proxy.Rates, error) {
+// Service rates change every minute.
+func (s *service) ExchangeRates(ctx context.Context, currency proxy.Currency) (proxy.Rates, error) {
 	type Response struct {
 		Data struct {
 			Currency string
@@ -47,15 +47,13 @@ func (api *Api) ExchangeRates(ctx context.Context, currency proxy.Currency) (pro
 		}
 	}
 
-	url := fmt.Sprintf("%v/exchange-rates?currency=%v", api.url, currency)
-
-	api.logger.Log("msg", "loading exchange rates", "currency", currency, "url", url)
+	url := fmt.Sprintf("%v/exchange-rates?currency=%v", s.url, currency)
 
 	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("building http request: %w", err)
 	}
-	httpResponse, err := api.client.Do(request)
+	httpResponse, err := s.client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("http get: %w", err)
 	}
